@@ -48,6 +48,19 @@ class UserPermissionRepository(
             statement = statement.where(UserPermission.from_role == None)
 
         return await self.get_one_or_none(statement)
+    
+    async def get_by_perm_and_user_and_role(
+        self, user: UUID4, permission: UUID4, role: UUID4
+    ) -> UserPermission | None:
+        statement = (
+            select(UserPermission)
+            .where(
+                UserPermission.user_id == user,
+                UserPermission.permission_id == permission,
+                UserPermission.from_role_id == role,
+            )
+        )
+        return await self.get_one_or_none(statement)
 
     async def delete_by_user_and_role(self, user: UUID4, from_role: UUID4) -> None:
         statement = delete(UserPermission).where(

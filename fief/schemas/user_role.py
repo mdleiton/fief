@@ -2,6 +2,7 @@ from pydantic import UUID4
 
 from fief.schemas.generics import BaseModel, CreatedUpdatedAt
 from fief.schemas.role import RoleEmbedded
+from fief.schemas.user import UserRead
 
 
 class UserRoleCreate(BaseModel):
@@ -15,3 +16,7 @@ class BaseUserRole(CreatedUpdatedAt):
 
 class UserRole(BaseUserRole):
     role: RoleEmbedded
+
+
+class UserRoleWithUser(BaseUserRole):
+    user: UserRead

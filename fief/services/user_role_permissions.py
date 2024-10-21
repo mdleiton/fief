@@ -1,6 +1,6 @@
 from fief.models import Role, User, UserPermission
 from fief.repositories import UserPermissionRepository
-
+import logging
 
 class UserRolePermissionsService:
     def __init__(self, user_permission_repository: UserPermissionRepository) -> None:
@@ -9,13 +9,17 @@ class UserRolePermissionsService:
     async def add_role_permissions(self, user: User, role: Role) -> None:
         user_permissions: list[UserPermission] = []
         for permission in role.permissions:
-            user_permissions.append(
-                UserPermission(
-                    user_id=user.id,
-                    permission_id=permission.id,
-                    from_role_id=role.id,
+            up = await self.user_permission_repository.get_by_perm_and_user_and_role(
+                user.id, permission.id, role.id
                 )
-            )
+            if up is None:
+                user_permissions.append(
+                    UserPermission(
+                        user_id=user.id,
+                        permission_id=permission.id,
+                        from_role_id=role.id,
+                    )
+                )
         await self.user_permission_repository.create_many(user_permissions)
 
     async def delete_role_permissions(self, user: User, role: Role) -> None:

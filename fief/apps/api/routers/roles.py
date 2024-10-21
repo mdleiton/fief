@@ -8,9 +8,11 @@ from fief.dependencies.repositories import get_repository
 from fief.dependencies.role import get_paginated_roles, get_role_by_id_or_404
 from fief.dependencies.tasks import get_send_task
 from fief.dependencies.webhooks import TriggerWebhooks, get_trigger_webhooks
+from fief.dependencies.users import get_paginated_role_users
 from fief.errors import APIErrorCode
 from fief.logger import AuditLogger
-from fief.models import AuditLogMessage, Role
+from fief.models import AuditLogMessage, Role, UserRole
+from pydantic import UUID4
 from fief.repositories import PermissionRepository, RoleRepository
 from fief.schemas.generics import PaginatedResults
 from fief.services.webhooks.models import RoleCreated, RoleDeleted, RoleUpdated
@@ -37,6 +39,26 @@ async def list_roles(
 @router.get("/{id:uuid}", name="roles:get", response_model=schemas.role.Role)
 async def get_role(role: Role = Depends(get_role_by_id_or_404)) -> Role:
     return role
+
+
+@router.get(
+    "/{id:uuid}/users",
+    name="roles:list_users",
+    response_model=PaginatedResults[schemas.user_role.UserRoleWithUser],
+)
+async def list_user_roles(
+    paginated_user_roles: PaginatedObjects[UserRole] = Depends(
+        get_paginated_role_users
+    ),
+) -> PaginatedResults[schemas.user_role.UserRoleWithUser]:
+    user_roles, count = paginated_user_roles
+    return PaginatedResults(
+        count=count,
+        results=[
+            schemas.user_role.UserRoleWithUser.model_validate(user_role)
+            for user_role in user_roles
+        ],
+    )
 
 
 @router.post(
@@ -140,3 +162,26 @@ async def delete_role(
     await repository.delete(role)
     audit_logger.log_object_write(AuditLogMessage.OBJECT_DELETED, role)
     trigger_webhooks(RoleDeleted, role, schemas.role.Role)
+
+
+@router.delete(
+    "/{id:uuid}/permission/{permission_id:uuid}",
+    name="permissionrole:delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def delete_permission_role(
+    permission_id: UUID4,
+    role: Role = Depends(get_role_by_id_or_404), 
+    repository: RoleRepository = Depends(RoleRepository),
+    audit_logger: AuditLogger = Depends(get_audit_logger),
+    trigger_webhooks: TriggerWebhooks = Depends(get_trigger_webhooks),
+):
+    new_permissions = []
+    for permission in role.permissions:
+        if permission != permission_id:
+            new_permissions.append(permission)
+    role.permissions = new_permissions
+    await repository.update(role)
+    audit_logger.log_object_write(AuditLogMessage.OBJECT_UPDATED, role)
+    trigger_webhooks(RoleUpdated, role, schemas.role.Role)

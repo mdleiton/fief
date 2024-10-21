@@ -32,6 +32,7 @@ from fief.dependencies.user_field import (
     get_user_fields,
     get_user_update_model,
 )
+from fief.dependencies.role import get_role_by_id_or_404
 from fief.dependencies.user_roles import get_user_roles_service
 from fief.dependencies.webhooks import TriggerWebhooks, get_trigger_webhooks
 from fief.errors import APIErrorCode
@@ -43,6 +44,7 @@ from fief.models import (
     UserField,
     UserPermission,
     UserRole,
+    Role
 )
 from fief.repositories import (
     EmailVerificationRepository,
@@ -210,6 +212,23 @@ async def get_paginated_user_roles(
     return await get_paginated_objects(
         statement, pagination, ordering, user_role_repository
     )
+
+async def get_paginated_role_users(
+    pagination: Pagination = Depends(get_pagination),
+    ordering: Ordering = Depends(OrderingGetter()),
+    role: Role = Depends(get_role_by_id_or_404),
+    user_role_repository: UserRoleRepository = Depends(
+        get_repository(UserRoleRepository)
+    ),
+    get_paginated_objects: GetPaginatedObjects[UserRole] = Depends(
+        get_paginated_objects_getter
+    ),
+) -> PaginatedObjects[UserRole]:
+    statement = user_role_repository.get_by_role_statement(role.id)
+    return await get_paginated_objects(
+        statement, pagination, ordering, user_role_repository
+    )
+
 
 
 async def get_user_roles(
